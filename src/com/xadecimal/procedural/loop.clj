@@ -2,14 +2,15 @@
 
 (defn- insert-throws
   [body]
-  (prewalk
+  (walk-exprs
    (fn[form]
-     (cond (and (list? form) (= 'break (first form)))
-           (reduced `(throw ex-break))
-           (and (list? form) (= 'continue (first form)))
-           (reduced `(throw ex-continue))
-           :else
-           form))
+     (or (and (seq? form) (= 'break (first form)))
+         (and (seq? form) (= 'continue (first form)))))
+   (fn[form]
+     (cond (and (seq? form) (= 'break (first form)))
+           `(throw ex-break)
+           (and (seq? form) (= 'continue (first form)))
+           `(throw ex-continue)))
    body))
 
 (defn- for-to-loop
