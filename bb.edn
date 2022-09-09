@@ -1,0 +1,7 @@
+{:tasks
+ {clean (clojure "-T:build clean")
+  compile (clojure "-T:build compile")
+  test (clojure "-X:test")
+  release (do (run 'clean)
+              (run 'compile)
+              (run 'test))}}

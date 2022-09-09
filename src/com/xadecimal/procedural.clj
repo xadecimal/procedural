@@ -1,82 +1,82 @@
 (ns com.xadecimal.procedural
   (:require [clojure.walk :as walk]
-            [proteus :as prot])
-  (:import [com.xadecimal.procedural ExBreak ExContinue]))
+            [clojure.set :as set]
+            [criterium.core :as crit]
+            [com.xadecimal.riddley.walk :as rw :refer [walk-exprs]]
+            [com.xadecimal.riddley.compiler :refer [locals]]
+            [clojure.set :as set])
+  (:import [com.xadecimal.procedural ExBreak ExContinue]
+           [clojure.lang Compiler Compiler$C Compiler$FnExpr
+            Compiler$BodyExpr Compiler$FnMethod
+            Compiler$CompilerException RT]))
 
 (load "procedural/common")
+(load "procedural/var_scope")
 (load "procedural/loop")
 
-(defn- find-and-replace-vars-mark-skip
-  [body]
-  (let [vars (atom #{})
-        forms (prewalk
-               (fn[form]
-                 (cond (and (list? form) (= 'var (first form)) (= (count form) 3))
-                       (let [var-sym (second form)
-                             var-val (nth form 2)]
-                         (swap! vars conj var-sym)
-                         (reduced (list ::skip `(vreset! ~var-sym ~var-val))))
-                       (and (symbol? form) (contains? @vars form))
-                       (reduced (list ::skip `(deref ~form)))
-                       :else
-                       form))
-               body)]
-    {:vars @vars
-     :forms forms}))
+#_((var-scope
+    (var i nil)
+    (let [f #(println i)] ;; TODO: Deal with this issue!
+      (set! i 2)
+      (when (= 1 1)
+        (set! i 3))
+      (var j 4)
+      (println i j)
+      f)))
 
-(defn- replace-tdz
-  [forms vars]
-  (prewalk
-   (fn[form]
-     (cond (and (list? form) (= ::skip (first form)))
-           (reduced (second form))
-           (and (symbol? form) (contains? vars form))
-           (reduced `(when-some [v# (deref ~form)]
-                       (if (= ~::reference-error (:type (ex-data v#)))
-                         (throw v#)
-                         v#)))
-           :else
-           form))
-   forms))
+#_(var-scope
+   (var i 1)
+   (println i)
+   (let [i 2]
+     (println i))
+   (let [i 3]
+     (println i))
+   (println i))
 
-(defmacro var-scope
-  [& body]
-  (let [{:keys [vars forms]} (find-and-replace-vars-mark-skip body)
-        forms (replace-tdz forms vars)]
-    `(let ~(vec
-            (mapcat
-             (fn[var]
-               [var
-                `(volatile!
-                  (ex-info
-                   (str "ReferenceError: Cannot access '" '~var "' before initialization")
-                   {:type `::reference-error
-                    :var '~var}))])
-             vars))
-       ~@forms)))
+(defn aa []
+  (let [i (long-array 1)]
+    (aset i 0 1)
+    (println (aget i 0))
+    (if (= 1 (aget i 0))
+      (aset i 0 2))
+    (println (aget i 0))
+    (let [i (long-array 1)]
+      (aset i 0 100)
+      (println (aget i 0))
+      (if (> (aget i 0) 50)
+        (aset i 0 10000))
+      (println (aget i 0)))
+    (println (aget i 0))))
 
-((prot/let-mutable
-  [i 1
-   j nil]
-  (let [f ^:local #(println i)] ;; TODO: Deal with this issue!
-    (set! i 2)
-    (when (= 1 1)
-      (set! i 3))
-    (set! j 4)
-    (println i j)
-    f)))
+#_(aa)
 
-((var-scope
-  (var i 1)
-  (let [f #(println i)] ;; TODO: Deal with this issue!
-    (var i 2)
-    (when (= 1 1)
-      (var i 3))
-    (var j 4)
-    (println i j)
-    f)))
+#_(var-scope
+   (var i 1)
+   (println i)
+   (if (= 1 i)
+     (set! i 2))
+   (println i)
+   (var-scope
+    (var i 0)
+    ((fn[] (set! i 100)))
+    (var j "hello")
+    (println i)
+    (println j)
+    (if (> i 50)
+      (set! i 10000))
+    (println i)
+    (set! j "pipi")
+    (println j))
+   (println i))
 
-#_(let [i 10]
-    (let [x 50]
-      (var i x))
-    i)
+(def w (fn[] (reduce + [1 2 3 4])))
+#_(var-scope
+   (var i ^long (w))
+   (var j 0)
+   (set! j i)
+   (var g j)
+   (+ i j g))
+
+#_(var-scope
+   (fn[] i)
+   (var i 0))
