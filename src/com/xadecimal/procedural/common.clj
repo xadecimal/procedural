@@ -3,25 +3,14 @@
 (def ^:private ex-break (ExBreak.))
 (def ^:private ex-continue (ExContinue.))
 
-(defn- prewalk
-  "Like prewalk, but skips forms that are reduced, that
-   way you can prevent walking inside a returned form
-   by having f return it reduced, final result will
-   deref the reduced form and return form without reduced."
-  [f form]
-  (walk/walk
-   (partial prewalk f)
-   #(if (reduced? %) (deref %) %)
-   (f form)))
-
 (defn- expression-info
-  "Uses the Clojure compiler to analyze the given s-expr.  Returns
-  a map with keys :class and :primitive? indicating what the compiler
-  concluded about the return value of the expression.  Returns nil if
-  not type info can be determined at compile-time.
+  "Uses the Clojure compiler to analyze the given s-expr. Returns
+   a map with keys :class and :primitive? indicating what the compiler
+   concluded about the return value of the expression. Returns nil if
+   no type info can be determined at compile-time.
 
-  Example: (expression-info '(+ (int 5) (float 10)))
-  Returns: {:class float, :primitive? true}"
+   Example: (expression-info '(+ (int 5) (float 10)))
+   Returns: {:class float, :primitive? true}"
   [expr]
   (let [^Compiler$FnExpr fn-ast (Compiler/analyze Compiler$C/EXPRESSION `(fn [] ~expr))
         ^Compiler$BodyExpr expr-ast (.body ^Compiler$FnMethod (first (.methods fn-ast)))]
@@ -30,9 +19,12 @@
        :primitive? (some-> expr-ast .getJavaClass .isPrimitive)})))
 
 (defn- contains?v
+  "Returns true if vector v contains element e, false otherwise."
   [v e]
   (.contains ^java.util.List v e))
 
 (defn- conj-distinctv
+  "Conj-oins element e into vector v where e is distinct, meaning if it is
+   already present in v it will not be duplicated."
   [v e]
   (into [] (distinct) (conj v e)))

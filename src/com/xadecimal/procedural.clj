@@ -3,8 +3,7 @@
             [clojure.set :as set]
             [criterium.core :as crit]
             [com.xadecimal.riddley.walk :as rw :refer [walk-exprs]]
-            [com.xadecimal.riddley.compiler :refer [locals]]
-            [clojure.set :as set])
+            [com.xadecimal.riddley.compiler :refer [locals]])
   (:import [com.xadecimal.procedural ExBreak ExContinue]
            [clojure.lang Compiler Compiler$C Compiler$FnExpr
             Compiler$BodyExpr Compiler$FnMethod
