@@ -1,4 +1,7 @@
-(in-ns 'com.xadecimal.procedural)
+(ns com.xadecimal.procedural.loop
+  (:require [com.xadecimal.procedural.common :refer [ex-break ex-continue]]
+            [com.xadecimal.riddley.walk :as rw :refer [walk-exprs]])
+  (:import [com.xadecimal.procedural ExBreak ExContinue]))
 
 (defn- insert-throws
   [body]
