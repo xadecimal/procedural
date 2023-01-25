@@ -1,72 +1,9 @@
 (ns com.xadecimal.procedural.var-scope
-  (:require [com.xadecimal.procedural.common :refer [conj-distinctv expression-info]]
-            [com.xadecimal.riddley.compiler :refer [locals]]
-            [com.xadecimal.riddley.walk :as rw :refer [walk-exprs]])
-  (:import [clojure.lang Compiler$CompilerException]))
-
-(defn- find-and-replace-vars
-  ([body] (find-and-replace-vars body (atom {}) (atom [])))
-  ([body vars ordered-vars]
-   (let [forms (walk-exprs
-                (fn[form]
-                  (or (and (seq? form) (= 'var (first form))
-                           (not (contains? @vars (second form))) (= (count form) 3))
-                      (and (seq? form) (= 'set! (first form))
-                           (contains? @vars (second form)) (= (count form) 3))
-                      (and (seq? form)
-                           (or (and (contains? #{'aset `aset 'aget `aget} (first form))
-                                    (contains? @vars (second form)))
-                               (and (= `[. RT] (take 2 form))
-                                    (seq? (nth form 2))
-                                    (contains? #{'aset `aset 'aget `aget} (first (nth form 2)))
-                                    (contains? @vars (second (nth form 2))))))
-                      (and (contains? @vars form) (not (contains? (locals) form)))))
-                (fn[form]
-                  (cond (and (seq? form) (= 'var (first form))
-                             (not (contains? @vars (second form))) (= (count form) 3))
-                        (let [var-sym (second form)
-                              var-val (nth form 2)
-                              _ (swap! ordered-vars conj-distinctv var-sym)
-                              _ (swap! vars update var-sym conj-distinctv var-val)
-                              deref-var-val (:forms (find-and-replace-vars var-val vars ordered-vars))]
-                          `(aset ~var-sym 0 ~deref-var-val))
-                        (and (seq? form) (= 'set! (first form))
-                             (contains? @vars (second form)) (= (count form) 3))
-                        (let [var-sym (second form)
-                              var-val (nth form 2)
-                              _ (swap! vars update var-sym conj-distinctv var-val)
-                              deref-var-val (:forms (find-and-replace-vars var-val vars ordered-vars))]
-                          `(aset ~var-sym 0 ~deref-var-val))
-                        (and (seq? form)
-                             (or (and (contains? #{'aset `aset 'aget `aget} (first form))
-                                      (contains? @vars (second form)))
-                                 (and (= `[. RT] (take 2 form))
-                                      (seq? (nth form 2))
-                                      (contains? #{'aset `aset 'aget `aget} (first (nth form 2)))
-                                      (contains? @vars (second (nth form 2))))))
-                        form
-                        (and (contains? @vars form) (not (contains? (locals) form)))
-                        `(aget ~form 0)))
-                '#{var}
-                body)]
-     {:vars @vars
-      :ordered-vars @ordered-vars
-      :forms forms})))
-
-(defn- assert-vars-not-out-of-scope
-  [body vars]
-  (let [seen-vars (atom #{})]
-    (walk-exprs
-     (fn[form]
-       (when (and (seq? form) (= 'var (first form)) (= (count form) 3))
-         (let [var-sym (second form)]
-           (swap! seen-vars conj var-sym)))
-       (and (contains? vars form) (not (contains? (set (keys (locals))) form))))
-     (fn[form]
-       (when (not (contains? @seen-vars form))
-         (throw (ex-info (str "Uninitialized var: " form) {}))))
-     '#{var}
-     body)))
+  (:require
+   [com.xadecimal.procedural.common :as cm]
+   [com.xadecimal.riddley.walk :as rw])
+  (:import
+   [clojure.lang Compiler$CompilerException]))
 
 (defn- ->typed-array-constructor
   [array-type]
@@ -82,39 +19,106 @@
     `object-array))
 
 (defn- ->array-type
-  [var-vals types-map]
-  (let [types (reduce
-               (fn[types var-val]
-                 (conj types
-                       (try
-                         (or
-                          (get types-map var-val)
-                          (:class (expression-info var-val))
-                          Object)
-                         (catch Compiler$CompilerException _
-                           Object))))
-               []
-               var-vals)]
-    (if (apply = types)
-      (first types)
+  [expr types-map]
+  (try
+    (or (get types-map expr)
+        (:class (cm/expression-info expr))
+        Object)
+    (catch Compiler$CompilerException _
       Object)))
 
+(defn- var-initialization-form?
+  [form]
+  (and (seq? form)
+       (= 'var (nth form 0))
+       (symbol? (nth form 1))
+       (not= ::not-found (nth form 2 ::not-found))))
+
+(defn- ->var-initialization
+  [form]
+  (let [var-sym (nth form 1)
+        var-value (nth form 2)]
+    `(aset ~var-sym 0 ~var-value)))
+
+(defn- var-assignment-form?
+  [form seen-vars]
+  (and (seq? form)
+       (= 'set! (nth form 0))
+       (symbol? (nth form 1))
+       (get seen-vars (nth form 1))
+       (not= ::not-found (nth form 2 ::not-found))))
+
+(defn- ->var-assignment
+  [form]
+  (let [var-sym (nth form 1)
+        var-value (nth form 2)]
+    `(aset ~var-sym 0 ~var-value)))
+
+(defn- var-access-form?
+  [form seen-vars]
+  (and (symbol? form)
+       (get seen-vars form)))
+
+(defn- ->var-access
+  [form]
+  `(aget ~form 0))
+
+(defn- var-scope-form?
+  [form]
+  (and (seq? form)
+       (= 'var-scope (nth form 0))))
+
+(declare add-var-scope)
+
+(defn- add-var-scope-inside
+  [body seen-vars]
+  (rw/walk-exprs
+   (fn predicate [form]
+     (or (var-assignment-form? form seen-vars)
+         (var-access-form? form seen-vars)
+         (var-scope-form? form)))
+   (fn handler [form]
+     (cond (var-assignment-form? form seen-vars) ;; (set! i 20) -> (aset i 0 20)
+           (->var-assignment form)
+           (var-access-form? form seen-vars)
+           (->var-access form)
+           (var-scope-form? form)
+           (add-var-scope (rest form) seen-vars)))
+   '#{var var-scope}
+   body))
+
 (defn- add-var-scope
-  [body]
-  (let [{:keys [ordered-vars vars forms]} (find-and-replace-vars body)]
-    (assert-vars-not-out-of-scope body vars)
-    `(let
-         ~(vec
-           (mapcat
-            (let [previous-types (atom {})]
-              (fn[var-sym]
-                (let [var-vals (get vars var-sym)]
-                  [var-sym `(~(let [type (->array-type var-vals @previous-types)]
-                                (swap! previous-types assoc var-sym type)
-                                (->typed-array-constructor type))
-                             1)])))
-            ordered-vars))
-       ~@forms)))
+  [body init-seen]
+  (let [unwrapped? (atom false)
+        seen (atom init-seen)
+        seen-here (atom {})
+        var-defined-body (rw/walk-exprs
+                          (fn predicate [_form]
+                            (if @unwrapped?
+                              true
+                              (do (reset! unwrapped? true)
+                                  false)))
+                          (fn handler [form]
+                            (cond (var-initialization-form? form) ;; (var i 10) -> (aset i 10)
+                                  (let [var-sym (nth form 1)
+                                        var-type (->array-type (nth form 2) @seen)]
+                                    (swap! seen assoc var-sym var-type)
+                                    (swap! seen-here assoc var-sym var-type)
+                                    (->var-initialization form))
+                                  (var-scope-form? form)
+                                  (add-var-scope (rest form) @seen)
+                                  :else
+                                  (add-var-scope-inside form @seen)))
+                          '#{var var-scope}
+                          body)]
+    `(let ~(reduce-kv
+            (fn[acc k v]
+              (-> acc
+                  (conj k)
+                  (conj `(~(->typed-array-constructor v) 1))))
+            []
+            @seen-here)
+       ~@var-defined-body)))
 
 (defmacro var-scope
   "Creates a block scope where you can declare mutable variables using
@@ -132,4 +136,4 @@
     - inner block scopes see all variables from outer blocks and can access and
       mutate them"
   [& body]
-  (add-var-scope body))
+  (add-var-scope body {}))

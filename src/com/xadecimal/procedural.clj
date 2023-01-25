@@ -3,7 +3,8 @@
             [clojure.test :as test]
             [com.xadecimal.procedural.common :refer [expression-info]]
             [com.xadecimal.procedural.var-scope :refer [var-scope]]
-            [hyperfiddle.rcf :as rcf]))
+            [hyperfiddle.rcf :as rcf]
+            [clojure.zip :as zip]))
 
 ;; TODO: Refactor var-scope so you can only use var directly inside var-scope,
 ;; at the same level, and not nested inside inner forms (unless they are also
@@ -230,9 +231,10 @@ it does not need to be at the start."
 
 (tests
  "You cannot define a var from inside a closure."
- (var-scope
-  (#(var i 0))
-  i)
+ (eval
+  '(var-scope
+    (#(var i 0))
+    i))
  :throws Exception)
 
 (tests
@@ -409,6 +411,14 @@ it does not need to be at the start."
  :throws Exception
 
  (eval
+  (var-scope
+   (var i 0)
+   (var i "hello")))
+ :throws Exception)
+
+(tests
+ "You can't define the same var twice in the same scope."
+ (eval
   '(var-scope
     (var i 0)
     (var i "hello")))
@@ -460,10 +470,11 @@ it does not need to be at the start."
 
 (tests
  "You can't define a var inside a nested let, or any nested form really."
- (var-scope
-  (let [x 10]
-    (var i x))
-  i)
+ (eval
+  '(var-scope
+    (let [x 10]
+      (var i x))
+    i))
  :throws Exception
 
  (eval
@@ -472,3 +483,71 @@ it does not need to be at the start."
       (var i x))
     i))
  :throws Exception)
+
+(tests
+ "If you initialize a var with the value of another, it will adopt the same
+  type."
+ (update-vals
+  (expression-info
+   '(var-scope
+     (var i (short 0))
+     (var j i)
+     j))
+  str)
+ := {:class "short" :primitive? "true"})
+
+(tests
+ "You're allowed to set! inside another expression, and set! returns the
+  newly set! value."
+ (var-scope
+  (var i 10)
+  (+ 10 (set! i 20)) := 30
+  i)
+ := 20)
+
+(tests
+ (var-scope
+  (var i 0)
+  (when (= i 0)
+    (var-scope
+     (var i 10)
+     i := 10))
+  i)
+ := 0)
+
+(tests
+ (let [stack (atom '())
+       new-list (atom '())
+       input '(1 2 :nest 3 4 :nest 5 6 7 :nest 8)]
+   (doseq [e input] (swap! stack conj e))
+   (while (seq @stack)
+     (let [e (ffirst (swap-vals! stack pop))]
+       (if (not= :nest e)
+         (swap! new-list #(cons e %))
+         (do (swap! stack conj @new-list)
+             (reset! new-list '())))))
+   @new-list)
+ := '(1 2 (3 4 (5 6 7 (8))))
+
+ ((fn nest-seq [coll]
+    (when (seq coll)
+      (let [[f & r] coll]
+        (if (= f :nest)
+          (list (nest-seq r))
+          (cons f (nest-seq r))))))
+  '(1 2 :nest 3 4 :nest 5 6 7 :nest 8))
+ := '(1 2 (3 4 (5 6 7 (8))))
+
+ (let [zip (zip/seq-zip '(1 2 :nest 3 4 :nest 5 6 7 :nest 8))]
+   (loop [zip (zip/down zip)]
+     (cond (= (zip/node zip) :nest)
+           (recur
+            (zip/down
+             (assoc-in
+              (zip/edit zip #(rest (cons % (zip/rights zip))))
+              [1 :r] nil)))
+           (zip/right zip)
+           (recur (zip/right zip))
+           :else
+           (zip/root zip))))
+ := '(1 2 (3 4 (5 6 7 (8)))))
