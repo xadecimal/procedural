@@ -411,9 +411,9 @@ it does not need to be at the start."
  :throws Exception
 
  (eval
-  (var-scope
-   (var i 0)
-   (var i "hello")))
+  '(var-scope
+    (var i 0)
+    (var i "hello")))
  :throws Exception)
 
 (tests
@@ -506,6 +506,7 @@ it does not need to be at the start."
  := 20)
 
 (tests
+ "You can nest var-scope inside other forms inside a var-scope."
  (var-scope
   (var i 0)
   (when (= i 0)

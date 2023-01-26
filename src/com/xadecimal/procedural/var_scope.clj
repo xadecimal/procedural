@@ -5,6 +5,15 @@
   (:import
    [clojure.lang Compiler$CompilerException]))
 
+(defn- object-array2
+  "Creates an array of objects of size 1 with value as init-value.
+   We use this because object-array differs in signature to all other
+   typed array constructors, so we provide an object-array2 that follows
+   the same pattern of [size init-val]"
+  {:inline (fn [_size init-value]
+             `(. clojure.lang.RT ~'object_array ~[init-value]))}
+  ([_size init-value] (. clojure.lang.RT object_array [init-value])))
+
 (defn- ->typed-array-constructor
   [array-type]
   (condp some #{array-type}
@@ -16,7 +25,7 @@
     #{Long Long/TYPE} `long-array
     #{Float Float/TYPE} `float-array
     #{Double Double/TYPE} `double-array
-    `object-array))
+    `object-array2))
 
 (defn- ->array-type
   [expr types-map]
@@ -35,10 +44,31 @@
        (not= ::not-found (nth form 2 ::not-found))))
 
 (defn- ->var-initialization
-  [form]
-  (let [var-sym (nth form 1)
-        var-value (nth form 2)]
-    `(aset ~var-sym 0 ~var-value)))
+  [body form seen]
+  (->> body
+       (cons [(nth form 1)
+              `(~(->typed-array-constructor
+                  (->array-type (nth form 2) @seen))
+                1
+                ~(nth form 2))])
+       (cons `let)))
+
+(defn- nest-on-var-definition
+  [body seen]
+  (let [stack (atom '())
+        new-list (atom '())
+        input body]
+    (doseq [e input] (swap! stack conj e))
+    (while (seq @stack)
+      (let [form (ffirst (swap-vals! stack pop))]
+        (if (not (var-initialization-form? form))
+          (swap! new-list #(cons form %))
+          (do
+            (swap! seen assoc (nth form 1) (->array-type (nth form 2) @seen))
+            (swap! new-list ->var-initialization form seen)
+            (swap! stack conj @new-list)
+            (reset! new-list '())))))
+    @new-list))
 
 (defn- var-assignment-form?
   [form seen-vars]
@@ -91,34 +121,30 @@
   [body init-seen]
   (let [unwrapped? (atom false)
         seen (atom init-seen)
-        seen-here (atom {})
-        var-defined-body (rw/walk-exprs
-                          (fn predicate [_form]
-                            (if @unwrapped?
-                              true
-                              (do (reset! unwrapped? true)
-                                  false)))
-                          (fn handler [form]
-                            (cond (var-initialization-form? form) ;; (var i 10) -> (aset i 10)
-                                  (let [var-sym (nth form 1)
-                                        var-type (->array-type (nth form 2) @seen)]
-                                    (swap! seen assoc var-sym var-type)
-                                    (swap! seen-here assoc var-sym var-type)
-                                    (->var-initialization form))
-                                  (var-scope-form? form)
-                                  (add-var-scope (rest form) @seen)
-                                  :else
-                                  (add-var-scope-inside form @seen)))
-                          '#{var var-scope}
-                          body)]
-    `(let ~(reduce-kv
-            (fn[acc k v]
-              (-> acc
-                  (conj k)
-                  (conj `(~(->typed-array-constructor v) 1))))
-            []
-            @seen-here)
-       ~@var-defined-body)))
+        body (nest-on-var-definition body seen)]
+    `(do
+       ~@(rw/walk-exprs
+          (fn predicate [_form]
+            (if @unwrapped?
+              true
+              (do (reset! unwrapped? true)
+                  false)))
+          (fn handler [form]
+            (cond (var-scope-form? form)
+                  (add-var-scope (rest form) @seen)
+                  :else
+                  (add-var-scope-inside form @seen)))
+          '#{var var-scope}
+          body))))
+
+#_(var-scope
+   (println 100)
+   (var i 10)
+   (println i))
+
+#_(do (println 100)
+      (let [i (long-array 1 10)]
+        (println (aget i 0))))
 
 (defmacro var-scope
   "Creates a block scope where you can declare mutable variables using
