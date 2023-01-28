@@ -6,6 +6,14 @@
 (def ex-break (ExBreak.))
 (def ex-continue (ExContinue.))
 
+(defn get-compiler-class-info
+  [expr-ast]
+  "Returns the expr-ast Class info if it has any. expr-ast must have
+   `.hasJavaClass` method for this function to work."
+  (when (.hasJavaClass expr-ast)
+    {:class (.getJavaClass expr-ast)
+     :primitive? (some-> expr-ast .getJavaClass .isPrimitive)}))
+
 (defn expression-info
   "Uses the Clojure compiler to analyze the given s-expr. Returns
    a map with keys :class and :primitive? indicating what the compiler
@@ -17,9 +25,7 @@
   [expr]
   (let [^Compiler$FnExpr fn-ast (Compiler/analyze Compiler$C/EXPRESSION `(fn [] ~expr))
         ^Compiler$BodyExpr expr-ast (.body ^Compiler$FnMethod (first (.methods fn-ast)))]
-    (when (.hasJavaClass expr-ast)
-      {:class (.getJavaClass expr-ast)
-       :primitive? (some-> expr-ast .getJavaClass .isPrimitive)})))
+    (get-compiler-class-info expr-ast)))
 
 (defn contains?v
   "Returns true if vector v contains element e, false otherwise."
