@@ -7,12 +7,13 @@
 (def ex-continue (ExContinue.))
 
 (defn get-compiler-class-info
+  "Returns the expr-ast Class info if it has any."
   [expr-ast]
-  "Returns the expr-ast Class info if it has any. expr-ast must have
-   `.hasJavaClass` method for this function to work."
-  (when (.hasJavaClass expr-ast)
-    {:class (.getJavaClass expr-ast)
-     :primitive? (some-> expr-ast .getJavaClass .isPrimitive)}))
+  (try
+    (when-some [java-class (.getJavaClass expr-ast)]
+      {:class java-class
+       :primitive? (.isPrimitive java-class)})
+    (catch Exception _e)))
 
 (defn expression-info
   "Uses the Clojure compiler to analyze the given s-expr. Returns

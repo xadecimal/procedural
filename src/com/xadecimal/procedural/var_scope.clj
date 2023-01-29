@@ -116,13 +116,13 @@
             (reset! nested-form '())))))
     `(do ~@@nested-form)))
 
-(defn caca
+(defn hint
   ^long [xs]
   (reduce + xs))
 
 (def ^{:tag 'long} k 100)
 
-#_(let [i (long k)]
+#_(let [i k]
     (var-scope
      (println 100)
      (var i i)
@@ -166,12 +166,9 @@
                                   ;; the value inside the array, otherwise the type found
                                   ;; would be an array of type, instead of type.
                                   (::tag (meta (.-sym v)))
-                                  ;; tag seems needed when the local itself refers to
-                                  ;; a global var and we type-hint the local sym
-                                  (.-tag v)
                                   ;; This covers the rest, values wrapped in primitive casts
                                   ;; or functions with their arg vector type hinted
-                                  ;; as well as all literals
+                                  ;; as well as all literals and type hints on the local.
                                   (:class (cm/get-compiler-class-info v)))]))
                        env)]
     (add-var-scope body env-vars)))
