@@ -18,7 +18,7 @@
          :exec-fn cognitect.test-runner.api/test
          :exec-args {:dirs ["src" "test"]
                      :patterns ["com.xadecimal.*"]}}
-  :dev {:extra-paths ["dev"]}
+  :dev {:extra-paths ["dev" "test"]}
   ;; Run with clj -T:build function-in-build
   :build {:deps {io.github.clojure/tools.build {:git/tag "v0.8.3" :git/sha "0d20256"}}
           :ns-default build}}}

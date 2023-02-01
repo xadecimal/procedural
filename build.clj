@@ -10,7 +10,7 @@
 (defn clean [_]
   (b/delete {:path "target"}))
 
-(defn compile [_]
+(defn compile-java [_]
   (b/javac {:src-dirs ["jsrc"]
             :class-dir class-dir
             :basis basis

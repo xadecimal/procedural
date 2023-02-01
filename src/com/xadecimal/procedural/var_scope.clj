@@ -1,17 +1,42 @@
 (ns com.xadecimal.procedural.var-scope
   (:require
-   [com.xadecimal.procedural.common :as cm])
-  (:import
-   [clojure.lang Compiler$CompilerException]))
+   [com.xadecimal.riddley.walk :as riddley]))
 
-(defn- object-array2
+(defn- get-local-binding-info
+  "Returns the local-binding's Class/primitive info if it has any.
+
+   Example return: {:class long :primitive? true}"
+  [local-binding]
+  (try
+    (when-some [java-class (.getJavaClass local-binding)]
+      {:class java-class
+       :primitive? (.isPrimitive java-class)})
+    (catch Exception _e)))
+
+(defn- get-local-binding-type
+  [local-binding]
+  (or
+   ;; This is used for outer var-scope var, the var-scope
+   ;; macro also adds a ::tag meta to it's local symbols,
+   ;; so that inner var-scopes can refer to the type of
+   ;; the value inside the array, otherwise the type found
+   ;; would be an array of type, instead of type.
+   (::tag (meta (.-sym local-binding)))
+   ;; This covers the rest, values wrapped in primitive casts
+   ;; or functions with their arg vector type hinted
+   ;; as well as all literals and type hints on the local.
+   (:class (get-local-binding-info local-binding))
+   Object))
+
+(defn object-array2
   "Creates an array of objects of size 1 with value as init-value.
    We use this because object-array differs in signature to all other
    typed array constructors, so we provide an object-array2 that follows
    the same pattern of [size init-val]"
   {:inline (fn [_size init-value]
              `(. clojure.lang.RT ~'object_array ~[init-value]))}
-  ([_size init-value] (. clojure.lang.RT object_array [init-value])))
+  [_size init-value]
+  (. clojure.lang.RT object_array [init-value]))
 
 (defn- ->typed-array-constructor
   [array-type]
@@ -26,15 +51,12 @@
     #{'double Double Double/TYPE} `double-array
     `object-array2))
 
-(defn- ->array-type
-  [expr types-map]
-  (try
-    (or (get types-map expr)
-        (:tag (meta expr))
-        (:class (cm/expression-info expr))
-        Object)
-    (catch Compiler$CompilerException _
-      Object)))
+(defmacro var-initialization
+  [var-sym & body]
+  (let [type (-> (get &env var-sym) (get-local-binding-type))]
+    `(let [~(vary-meta var-sym assoc ::tag type)
+           (~(->typed-array-constructor type) 1 ~var-sym)]
+       ~@body)))
 
 (defn- var-initialization-form?
   [form]
@@ -44,20 +66,20 @@
        (not= ::not-found (nth form 2 ::not-found))))
 
 (defn- ->var-initialization
-  [body form seen-vars]
+  [body form]
   (let [var-sym (nth form 1)
-        var-val (nth form 2)
-        type (get seen-vars var-sym)]
-    `(let [~(vary-meta var-sym assoc ::tag type)
-           (~(->typed-array-constructor type) 1 ~var-val)]
-       ~@body)))
+        var-val (nth form 2)]
+    `(let [~var-sym ~var-val]
+       (var-initialization
+        ~var-sym
+        (var-assignment-and-access ~@body)))))
 
 (defn- var-assignment-form?
   [form seen-vars]
   (and (seq? form)
        (= 'set! (nth form 0))
        (symbol? (nth form 1))
-       (get seen-vars (nth form 1))
+       (contains? seen-vars (nth form 1))
        (not= ::not-found (nth form 2 ::not-found))))
 
 (defn- ->var-assignment
@@ -69,7 +91,7 @@
 (defn- var-access-form?
   [form seen-vars]
   (and (symbol? form)
-       (get seen-vars form)))
+       (contains? seen-vars form)))
 
 (defn- ->var-access
   [form]
@@ -78,22 +100,90 @@
 (defn- var-scope-form?
   [form]
   (and (seq? form)
-       (= 'var-scope (nth form 0))))
+       (#{'var-scope
+          `var-scope} (nth form 0))))
+
+(defn- var-assignment-and-access-form?
+  [form]
+  (and (seq? form)
+       (#{'var-assignment-and-access
+          `var-assignment-and-access} (nth form 0))))
+
+(defn- var-initialization-macro-form?
+  [form]
+  (and (seq? form)
+       (#{'var-initialization
+          `var-initialization} (nth form 0))))
+
+(defn- add-var-assignment-and-access
+  [body env-vars]
+  (let [vars
+        ;; Start with all local vars whose meta is tagged with ::tag which
+        ;; indicates it's a local var that was created by var-scope
+        ;; as we only want to touch those locals.
+        (into #{} (filter #(::tag (meta %))) env-vars)]
+    (riddley/walk-exprs
+     (fn predicate [form]
+       (or (var-assignment-form? form vars)
+           (var-access-form? form vars)
+           (var-assignment-and-access-form? form)
+           (var-scope-form? form)
+           (var-initialization-macro-form? form)))
+     (fn handler [form]
+       (cond (var-assignment-form? form vars)
+             (->var-assignment form)
+             (var-access-form? form vars)
+             (->var-access form)
+             :else
+             form))
+     #{'set! 'var-assignment-and-access
+       `var-assignment-and-access 'var-scope
+       `var-scope 'var-initialization
+       `var-initialization}
+     body)))
+
+(defmacro var-assignment-and-access
+  [& body]
+  `(do
+     ~@(add-var-assignment-and-access
+        body
+        ;; Get the symbol of every locals.
+        ;; You can't use the key of &env, because that is not
+        ;; the correct symbol in the case of shadowing, you have
+        ;; to grab the symbol from the LocalBinding on the value of &env
+        ;; or the meta will be wrong.
+        (map (fn[[_k v]] (.-sym v)) &env))))
 
 (defn- add-var-scope
-  [body outer-vars]
+  "Takes body, and for every (var sym value) forms, which we call
+   var-initialization forms, it'll nest all forms that come after it
+   inside our ->var-initialization generating form.
+
+   '((println 100)
+     (var i 10)
+     (+ i i))
+
+   becomes:
+
+   (var-assignment-and-access
+     (println 100)
+     (let [i 10]
+       (var-initialization i
+         (var-assignment-and-access (+ i i)))))"
+  [body]
   (let [stack (atom '())
         nested-form (atom '())
-        ;; Map of sym -> type, which tracks the vars we've seen
-        ;; along with their inferred type.
-        seen-vars (atom outer-vars)]
+        seen-vars (atom #{})]
     ;; Push all top-level form to stack
     (doseq [form body]
-      ;; Track the vars we see as we push them and analyze their type, if
-      ;; a var has a prior seen one as it's value we will use the type of
-      ;; the previous one as its type.
       (when (var-initialization-form? form)
-        (swap! seen-vars assoc (nth form 1) (->array-type (nth form 2) @seen-vars)))
+        (let [[_ var-sym] form]
+          (when (contains? @seen-vars var-sym)
+            (throw (ex-info
+                    (str "Variable " var-sym " is already defined in current scope. You're not allowed to define the same var twice in the same scope.")
+                    {:ex-type :invalid-input
+                     :input form})))
+          (swap! seen-vars conj var-sym)))
       (swap! stack conj form))
     ;; While stack isn't empty
     (while (seq @stack)
@@ -108,33 +198,13 @@
           ;; by making it a let form with our var as an
           ;; array initialized to our value inside an array
           (do
-            (swap! nested-form ->var-initialization form @seen-vars)
+            (swap! nested-form ->var-initialization form)
             ;; We add it back to the stack because it might need
             ;; to be nested itself in another form
             (swap! stack conj @nested-form)
             ;; We create a new nested-form where we'll nest the rest
             (reset! nested-form '())))))
-    `(do ~@@nested-form)))
-
-(defn hint
-  ^long [xs]
-  (reduce + xs))
-
-(def ^{:tag 'long} k 100)
-
-#_(let [i k]
-    (var-scope
-     (println 100)
-     (var i i)
-     (println :i i)
-     (var j i)
-     (println :j j)
-     (var-scope
-      (println :j j)
-      (var i 200)
-      (var j j)
-      (println :i i)
-      (println :j j))))
+    `(var-assignment-and-access ~@@nested-form)))
 
 (defmacro var-scope
   "Creates a block scope where you can declare mutable variables using
@@ -152,23 +222,4 @@
     - inner block scopes see all variables from outer blocks and can access and
       mutate them"
   [& body]
-  (let [env &env
-        ;; Find the type of local vars and pass them to add-var-scope so that
-        ;; if we are initializing a var with the value of a reference to another
-        ;; local it will have the type of the referred local.
-        ;; i.e: (let [i 10] (var j i)) -> we want j to be ^long same as i
-        env-vars (into {}
-                       (map (fn[[k v]]
-                              [k (or
-                                  ;; This is used for outer var-scope var, the var-scope
-                                  ;; macro also adds a ::tag meta to it's local symbols,
-                                  ;; so that inner var-scopes can refer to the type of
-                                  ;; the value inside the array, otherwise the type found
-                                  ;; would be an array of type, instead of type.
-                                  (::tag (meta (.-sym v)))
-                                  ;; This covers the rest, values wrapped in primitive casts
-                                  ;; or functions with their arg vector type hinted
-                                  ;; as well as all literals and type hints on the local.
-                                  (:class (cm/get-compiler-class-info v)))]))
-                       env)]
-    (add-var-scope body env-vars)))
+  (add-var-scope body))

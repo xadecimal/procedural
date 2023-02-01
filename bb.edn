@@ -1,6 +1,6 @@
 {:tasks
  {clean (clojure "-T:build clean")
-  compile (clojure "-T:build compile")
+  compile (clojure "-T:build compile-java")
   test (clojure "-X:test")
   release (do (run 'clean)
               (run 'compile)
