@@ -571,3 +571,12 @@ it does not need to be at the start."
                (is (= (expression-infom j) {:class Integer/TYPE, :primitive? true}))
                [i j])))
            [200 125]))))
+
+(deftest test38
+  (testing
+      "We can use a var on the right hand side of assignment using set!"
+    (is (= (var-scope
+            (var i 0)
+            (set! i (inc i))
+            i)
+           1))))

@@ -131,7 +131,13 @@
            (var-initialization-macro-form? form)))
      (fn handler [form]
        (cond (var-assignment-form? form vars)
-             (->var-assignment form)
+             (->var-assignment
+              ;; We need to process the right hand side of assignment in case
+              ;; it uses previous vars as well, like: (set! i (inc i))
+              (let [[set-sym var-sym value-form] form]
+                `(~set-sym
+                  ~var-sym
+                  ~(add-var-assignment-and-access value-form env-vars))))
              (var-access-form? form vars)
              (->var-access form)
              :else

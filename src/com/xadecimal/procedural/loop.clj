@@ -1,49 +1,9 @@
 (ns com.xadecimal.procedural.loop
-  (:require [com.xadecimal.procedural.common :refer [ex-break ex-continue]]
-            [com.xadecimal.riddley.walk :as rw :refer [walk-exprs]])
+  (:require [com.xadecimal.procedural.var-scope :refer [var-scope]])
   (:import [com.xadecimal.procedural ExBreak ExContinue]))
 
-(defn- insert-throws
-  [body]
-  (walk-exprs
-   (fn[form]
-     (or (and (seq? form) (= 'break (first form)))
-         (and (seq? form) (= 'continue (first form)))))
-   (fn[form]
-     (cond (and (seq? form) (= 'break (first form)))
-           `(throw ex-break)
-           (and (seq? form) (= 'continue (first form)))
-           `(throw ex-continue)))
-   body))
-
-#_(for-loop [i 0 (< i 10) (inc i)]
-    (if (= 4 i)
-      (continue)
-      (println i)))
-
-#_(for-loop [i 0 (< i 10) (+ i 3)]
-    (if (= 4 i)
-      (continue)
-      (for-loop [y i (< y 10) (inc y)]
-        (println i y)))
-    (println i))
-
-#_(for-loop [[i 0 j 10] (and (< i 10) (> j 0)) [(inc i) (dec j)]]
-    (if (= 4 i)
-      (continue)
-      (println i j)))
-
-#_(try
-    (var-scope
-     (var i 0)
-     (while (< i 10)
-       (try
-         (if (= 4 i)
-           (continue)
-           (println i))
-         (catch ExContinue t#)
-         (finally (set! i (inc i))))))
-    (catch ExBreak t#))
+(def ex-break (ExBreak.))
+(def ex-continue (ExContinue.))
 
 (defn- for-to-loop
   "Rewrite body so it is wrapped in a try/catch and var-scope that simulates an
@@ -63,7 +23,7 @@
           `((var ~s ~i)))
       (while ~(if (vector? s) i c)
         (try
-          ~@(insert-throws body)
+          ~@body
           (catch ExContinue t#)
           (finally ~@(if (vector? s)
                        (map (fn[s p] `(set! ~s ~p))
@@ -74,6 +34,7 @@
 (defn break
   "Breaks out of for-loop. Can be called inside a function call as long
    as its within the scope and extent of the for-loop."
+  {:inline (fn [] `(throw ex-break))}
   []
   (throw ex-break))
 
@@ -81,6 +42,7 @@
   "Continues to next iteration skipping over what's left in current pass.
    Can be called inside a function call as long as its within the scope
    and extent of the for-loop."
+  {:inline (fn [] `(throw ex-continue))}
   []
   (throw ex-continue))
 
@@ -132,3 +94,32 @@
   {:style/indent 1}
   [test & body]
   (for-to-loop [[] test []] body))
+
+#_(for-loop [i 0 (< i 10) (inc i)]
+    (if (= 4 i)
+      (continue)
+      (println i)))
+
+#_(for-loop [i 0 (< i 10) (+ i 3)]
+    (if (= 4 i)
+      (continue)
+      (for-loop [y i (< y 10) (inc y)]
+        (println i y)))
+    (println i))
+
+#_(for-loop [[i 0 j 10] (and (< i 10) (> j 0)) [(inc i) (dec j)]]
+    (if (= 4 i)
+      (continue)
+      (println i j)))
+
+#_(try
+    (var-scope
+     (var i 0)
+     (while (< i 10)
+       (try
+         (if (= 4 i)
+           (continue)
+           (println i))
+         (catch ExContinue t#)
+         (finally (set! i (inc i))))))
+    (catch ExBreak t#))
