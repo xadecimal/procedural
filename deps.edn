@@ -1,7 +1,6 @@
 {:paths ["src" "target/classes"]
  :deps {org.clojure/clojure {:mvn/version "1.11.1"}
         criterium/criterium {:mvn/version "RELEASE"}
-        com.hyperfiddle/rcf {:mvn/version "20220926-202227"}
         com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.0"}
         com.clojure-goes-fast/clj-java-decompiler {:mvn/version "0.3.2"}
         com.xadecimal/riddley {:git/url "https://github.com/xadecimal/riddley.git"
@@ -13,8 +12,6 @@
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
-         :jvm-opts ["-Dhyperfiddle.rcf.generate-tests=true"
-                    "-XX:-OmitStackTraceInFastThrow"]
          :exec-fn cognitect.test-runner.api/test
          :exec-args {:dirs ["src" "test"]
                      :patterns ["com.xadecimal.*"]}}

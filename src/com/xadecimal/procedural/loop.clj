@@ -95,6 +95,10 @@
   [test & body]
   (for-to-loop [[] test []] body))
 
+(set! *warn-on-reflection* true)
+
+(set! *unchecked-math* :warn-on-boxed)
+
 #_(for-loop [i 0 (< i 10) (inc i)]
     (if (= 4 i)
       (continue)
