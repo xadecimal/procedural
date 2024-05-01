@@ -1,8 +1,5 @@
 {:paths ["src" "target/classes"]
- :deps {org.clojure/clojure {:mvn/version "1.11.1"}
-        criterium/criterium {:mvn/version "RELEASE"}
-        com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.0.0"}
-        com.clojure-goes-fast/clj-java-decompiler {:mvn/version "0.3.2"}
+ :deps {org.clojure/clojure {:mvn/version "1.11.3"}
         com.xadecimal/riddley {:git/url "https://github.com/xadecimal/riddley.git"
                                :git/tag "0.2.3"
                                :git/sha "e9ecc4b"}}
@@ -15,7 +12,10 @@
          :exec-fn cognitect.test-runner.api/test
          :exec-args {:dirs ["src" "test"]
                      :patterns ["com.xadecimal.*"]}}
-  :dev {:extra-paths ["dev" "test"]}
+  :dev {:extra-paths ["dev" "test"]
+        :extra-deps {criterium/criterium {:mvn/version "RELEASE"}
+                     com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.2.0"}
+                     com.clojure-goes-fast/clj-java-decompiler {:mvn/version "0.3.4"}}}
   ;; Run with clj -T:build function-in-build
-  :build {:deps {io.github.clojure/tools.build {:git/tag "v0.8.3" :git/sha "0d20256"}}
+  :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.1" :git/sha "5e3b8f3"}}
           :ns-default build}}}

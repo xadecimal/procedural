@@ -2,7 +2,7 @@
   (:require [clojure.tools.build.api :as b]))
 
 (def lib 'com.xadecimal/procedural)
-(def version "0.0.0")
+(def version "0.1.0")
 
 (def class-dir "target/classes")
 (def basis (b/create-basis))
