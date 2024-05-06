@@ -1,8 +1,6 @@
 {:paths ["src" "target/classes"]
  :deps {org.clojure/clojure {:mvn/version "1.11.3"}
-        com.xadecimal/riddley {:git/url "https://github.com/xadecimal/riddley.git"
-                               :git/tag "0.2.3"
-                               :git/sha "e9ecc4b"}}
+        com.xadecimal/mutable-var {:mvn/version "0.1.0"}}
  :deps/prep-lib {:alias :build
                  :fn compile
                  :ensure "target/classes"}
