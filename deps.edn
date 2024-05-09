@@ -2,18 +2,18 @@
  :deps {org.clojure/clojure {:mvn/version "1.11.3"}
         com.xadecimal/mutable-var {:mvn/version "0.1.0"}}
  :deps/prep-lib {:alias :build
-                 :fn compile
+                 :fn java-compile
                  :ensure "target/classes"}
  :aliases
  {:test {:extra-paths ["test"]
          :extra-deps {io.github.cognitect-labs/test-runner {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
          :exec-fn cognitect.test-runner.api/test
-         :exec-args {:dirs ["src" "test"]
+         :exec-args {:dirs ["test"]
                      :patterns ["com.xadecimal.*"]}}
   :dev {:extra-paths ["dev" "test"]
         :extra-deps {criterium/criterium {:mvn/version "RELEASE"}
                      com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.2.0"}
                      com.clojure-goes-fast/clj-java-decompiler {:mvn/version "0.3.4"}}}
   ;; Run with clj -T:build function-in-build
-  :build {:deps {io.github.clojure/tools.build {:git/tag "v0.10.1" :git/sha "5e3b8f3"}}
-          :ns-default build}}}
+  :build {:deps {com.github.liquidz/build.edn {:mvn/version "0.11.257"}}
+          :ns-default build-edn.main}}}

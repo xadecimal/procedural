@@ -4,6 +4,10 @@
             [clojure.core.specs.alpha :as specs])
   (:import [com.xadecimal.procedural ExReturn]))
 
+;;; Used to implement defn and fn extension macros that support all what fn
+;;; and defn do, but also wraps it all in a try/catch for (return) support and
+;;; in a var-scope for local mutable variable support.
+
 ;; From https://blog.klipse.tech/clojure/2019/03/08/spec-custom-defn.html
 (s/def ::specs/seq-binding-form
   (s/and vector?

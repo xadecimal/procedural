@@ -1,0 +1,16 @@
+{:lib com.xadecimal/procedural
+ :version "0.1.0"
+ :description "Adds procedural programming features back to Clojure, such as for-loop, mutable local variables, function scoped variables, early return, etc."
+ :licenses [{:name "MIT License"
+             :url "https://github.com/xadecimal/procedural/blob/main/LICENSE"}]
+ :java-paths ["jsrc"]
+ :documents [{:file "README.md"
+              :match ":deps \\{com\\.xadecimal\\/procedural"
+              :action :replace
+              :keep-indent? true
+              :text "{:deps {com.xadecimal/procedural {:mvn/version \"{{version}}\"}}}"}
+             {:file "README.md"
+              :match "\\[com\\.xadecimal\\/procedural"
+              :action :replace
+              :keep-indent? true
+              :text "[com.xadecimal/procedural \"{{version}}\"]"}]}
