@@ -77,6 +77,16 @@ To control loop execution, `for!` supports `continue` and `break`:
   (println i))
 ```
 
+Similar to how you can omit parts of a for loop declaration in procedural languages, typically using a semicolon (;) to represent an empty section, you can skip parts of `for!` using `_`.
+
+```clojure
+(require '[com.xadecimal.procedural :refer [for! _ ++]])
+
+(for! (var i 0) (< i 10) _
+  (println i)
+  (++ i))
+```
+
 ### While Loops
 
 `while!` loops execute as long as the condition is true:
