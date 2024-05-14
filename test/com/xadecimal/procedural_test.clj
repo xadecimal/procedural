@@ -43,6 +43,12 @@
         (swap! result + i)
         (swap! result - j))
       (is (= 0 @result))))
+  (testing "Can declare mutable variables inside body of for!"
+    (let [result (atom 0)]
+      (for! (var i 0) (< i 5) (++ i)
+        (var x 1)
+        (swap! result + x))
+      (is (= 5 @result))))
   (testing "For loop raises exception when body throws."
     (is (thrown? Exception
                  (for! (var i 0) (< i 5) (++ i)
@@ -68,6 +74,15 @@
            (when (= 2 result) (continue))
            (+= acc result))
          (is (= 13 acc))))
+  (testing "Can declare mutable variables inside body of while!"
+    (let [result (atom 0)]
+      (do!
+        (var i 0)
+        (while! (< i 5)
+          (var x 1)
+          (swap! result + x)
+          (++ i)))
+      (is (= 5 @result))))
   (testing "While loop raises exception with infinite loop containing throw."
     (is (thrown? Exception (while! true (throw (Exception. "Infinite loop")))))))
 
@@ -92,7 +107,16 @@
            (+= acc result))
          (is (= 13 acc))))
   (testing "Do-while! loop properly handles infinite loop scenario with throw."
-    (is (thrown? Exception (do-while! true (throw (Exception. "Infinite loop")))))))
+    (is (thrown? Exception (do-while! true (throw (Exception. "Infinite loop"))))))
+  (testing "Can declare mutable variables inside body of do-while!"
+    (let [result (atom 0)]
+      (do!
+        (var i 0)
+        (do-while! (< i 5)
+          (var x 1)
+          (swap! result + x)
+          (++ i)))
+      (is (= 5 @result)))))
 
 (deftest test-assignments-and-unary-operators
   (testing "Variable mutations are correctly applied through various operators."
@@ -132,7 +156,15 @@
     (is (= 5 (do! (var x 5)
                   (when! (> x 5)
                     (!= x 10))
-                  x)))))
+                  x))))
+  (testing "Can declare mutable variables inside body of when!"
+    (is (= 10 (when! true
+                (var x 10)
+                x))))
+  (testing "Can declare mutable variables inside body of when-not!"
+    (is (= 10 (when-not! false
+                (var x 10)
+                x)))))
 
 (deftest test-procedures
   (testing "Imperative procedures correctly returns a value."
@@ -157,3 +189,23 @@
     (is (= :last ((fn! [] :last))))
     (is (= :last (do (defn! d-fn [] :last)
                      (d-fn))))))
+
+(deftest leetcode
+  (testing "167. Two Sum II - Input Array Is Sorted"
+    (do (defn! two-sum
+          [numbers target]
+          (var left 0)
+          (var right (dec (count numbers)))
+          (while! (< left right)
+            (var sum (+ (get numbers left) (get numbers right)))
+            (cond
+              (= sum target)
+              (return [(inc left) (inc right)])
+              (< sum target)
+              (++ left)
+              :else
+              (-- right)))
+          :no-solution-found)
+        (is (= [1 2] (two-sum [2 7 11 15] 9)))
+        (is (= [1 3] (two-sum [2 3 4] 6)))
+        (is (= [1 2] (two-sum [-1 0] -1))))))

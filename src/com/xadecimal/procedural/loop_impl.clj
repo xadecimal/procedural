@@ -24,7 +24,8 @@
            `(~init))
        (while ~condition
          (try
-           ~@body
+           (var-scope
+             ~@body)
            (catch ExContinue t#)
            (finally ~@(if (vector? mutation)
                         mutation
@@ -41,13 +42,13 @@
    accordingly."
   [condition body]
   `(try
-     (var-scope
-       (loop []
-         (when ~condition
-           (try
-             ~@body
-             (catch ExContinue t#))
-           (recur))))
+     (loop []
+       (when ~condition
+         (try
+           (var-scope
+             ~@body)
+           (catch ExContinue t#))
+         (recur)))
      (catch ExBreak t#)))
 
 (defn do-while-loop
@@ -60,11 +61,11 @@
    (throw ex-continue) accordingly."
   [condition body]
   `(try
-     (var-scope
-       (loop []
-         (try
-           ~@body
-           (catch ExContinue t#))
-         (when ~condition
-           (recur))))
+     (loop []
+       (try
+         (var-scope
+           ~@body)
+         (catch ExContinue t#))
+       (when ~condition
+         (recur)))
      (catch ExBreak t#)))
