@@ -133,14 +133,14 @@
                   (when! (> x 5)
                     (!= x 10))
                   x)))))
-;; TODO fix the below
+
 (deftest test-procedures
   (testing "Imperative procedures correctly returns a value."
     (is (= 10 ((fn! [] 10))))
     (is (= 10 (do (defn! a-fn [] 10) (a-fn)))))
   (testing "Imperative procedures lets you use local mutable variables."
     (is (= 5 ((fn! [] (var x 0) (+= x 5) x))))
-    (is (= 10 (do (defn! a-fn [] 10) (a-fn)))))
+    (is (= 5 (do (defn! a-fn [] (var x 0) (+= x 5) x) (a-fn)))))
   (testing "Imperative procedures lets you return early."
     (is (= 3 ((fn! [] (dotimes [n 10]
                         (when (= n 3)

@@ -1,0 +1,6 @@
+{:lint-as {com.xadecimal.procedural/while! clojure.core/while
+           com.xadecimal.procedural/do-while! clojure.core/while}
+ :hooks {:analyze-call {com.xadecimal.procedural/do! hooks.procedural/do!
+                        com.xadecimal.procedural/for! hooks.procedural/for!
+                        com.xadecimal.procedural/fn! hooks.procedural/fn!
+                        com.xadecimal.procedural/defn! hooks.procedural/defn!}}}

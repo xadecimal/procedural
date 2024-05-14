@@ -1,7 +1,8 @@
 (ns com.xadecimal.procedural
   (:require [com.xadecimal.procedural.loop-impl :as loop-impl]
             [com.xadecimal.procedural.procedure-impl :as proc-impl]
-            [com.xadecimal.mutable-var :refer [var-scope]])
+            [com.xadecimal.mutable-var :refer [var-scope]]
+            [clojure.spec.alpha :as s])
   (:import [com.xadecimal.procedural ExReturn]))
 
 
@@ -24,6 +25,8 @@
 ;;;;;;;;;;;;;;
 ;;;; Loops
 
+(def ^:const _ nil)
+
 (defn break
   "Breaks out of for! loop. Can be called inside a function call as long
    as its within the scope and extent of the for! loop."
@@ -38,6 +41,19 @@
   {:inline (fn [] `(throw loop-impl/ex-continue))}
   []
   (throw loop-impl/ex-continue))
+
+(s/fdef for!
+  :args (s/cat :init (s/or :list list?
+                           :vector (s/coll-of list?)
+                           :skip #(and (symbol? %)
+                                       (= (name %) "_")))
+               :condition list?
+               :mutation (s/or :list list?
+                               :vector (s/coll-of list?)
+                               :skip #(and (symbol? %)
+                                           (= (name %) "_")))
+               :body (s/? (s/* any?)))
+  :ret any?)
 
 (defmacro for!
   "Imperative for loop, always returns nil, assumes side-effects.

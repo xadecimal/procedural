@@ -1,6 +1,6 @@
-{:paths ["src" "target/classes"]
+{:paths ["src" "target/classes" "resources"]
  :deps {org.clojure/clojure {:mvn/version "1.11.3"}
-        com.xadecimal/mutable-var {:mvn/version "0.1.0"}}
+        com.xadecimal/mutable-var {:mvn/version "0.2.0"}}
  :deps/prep-lib {:alias :build
                  :fn java-compile
                  :ensure "target/classes"}
@@ -13,7 +13,8 @@
   :dev {:extra-paths ["dev" "test"]
         :extra-deps {criterium/criterium {:mvn/version "RELEASE"}
                      com.clojure-goes-fast/clj-async-profiler {:mvn/version "1.2.0"}
-                     com.clojure-goes-fast/clj-java-decompiler {:mvn/version "0.3.4"}}}
+                     com.clojure-goes-fast/clj-java-decompiler {:mvn/version "0.3.4"}
+                     clj-kondo/clj-kondo {:mvn/version "LATEST"}}}
   ;; Run with clj -T:build function-in-build
   :build {:deps {com.github.liquidz/build.edn {:mvn/version "0.11.257"}}
           :ns-default build-edn.main}}}
