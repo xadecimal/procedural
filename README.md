@@ -21,13 +21,13 @@ To add Procedural to your Clojure project, add the dependency to your project co
 ### Leiningen
 Add the following to your `project.clj` file:
 ```clj
-[com.xadecimal/procedural "0.1.1"]
+[com.xadecimal/procedural "0.2.1"]
 ```
 
 ### Clojure CLI/deps.edn
 Add the following to your `deps.edn`:
 ```clj
-{:deps {com.xadecimal/procedural {:mvn/version "0.1.1"}}}
+{:deps {com.xadecimal/procedural {:mvn/version "0.2.1"}}}
 ```
 
 ## Usage
