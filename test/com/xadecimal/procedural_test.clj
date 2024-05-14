@@ -16,7 +16,7 @@
                          x)))))
   (testing "You can't change the infered type of a var after initialization."
     (is (thrown? Exception (do! (var x 1)
-                                (!= x "1"))))))
+                                (=! x "1"))))))
 
 (deftest test-for!
   (testing "For! loop iterates correctly with increment operation."
@@ -121,7 +121,7 @@
 (deftest test-assignments-and-unary-operators
   (testing "Variable mutations are correctly applied through various operators."
     (do! (var x 10)
-         (!= x 20)
+         (=! x 20)
          (+= x 5)
          (-= x 2)
          (*= x 2)
@@ -145,17 +145,17 @@
   (testing "Conditional 'when!' executes the body when the condition is true."
     (is (= 20 (do! (var x 10)
                    (when! (> x 5)
-                     (!= x 20))
+                     (=! x 20))
                    x))))
   (testing "Conditional 'when-not!' executes the body when the condition is false."
     (is (= 10 (do! (var x 5)
                    (when-not! (< x 5)
-                     (!= x 10))
+                     (=! x 10))
                    x))))
   (testing "Conditional 'when-not!' skips body when condition is false."
     (is (= 5 (do! (var x 5)
                   (when! (> x 5)
-                    (!= x 10))
+                    (=! x 10))
                   x))))
   (testing "Can declare mutable variables inside body of when!"
     (is (= 10 (when! true

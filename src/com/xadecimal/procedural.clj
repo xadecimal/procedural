@@ -12,7 +12,7 @@
 (defmacro do!
   "Defines an imperative code block, where you can declare block-scoped local
    mutable variables using `(var <name> <value>)`. The variables can be mutated
-   using the other assignemnt operators such as `!=`, `+=`, `-=`, `++`, `--`,
+   using the other assignemnt operators such as `=!`, `+=`, `-=`, `++`, `--`,
    etc. For assignment you can also use `(set! <name> <new-val>)`."
   {:style/indent 0}
   [& body]
@@ -121,7 +121,7 @@
 ;;;;;;;;;;;;;;;;;;;;
 ;;;; Assignments
 
-(defmacro !=
+(defmacro =!
   "Simple assignment operator. Assigns value `e` to variable `v`."
   {:style/indent 1}
   [v e]
@@ -269,7 +269,7 @@
 (defmacro defn!
   "Imperative procedure. It differs from a Clojure defn in that it allows the
    use of local mutable variables using `(var <name> <value>) and other
-   accompanying operators like `!=`, `+=`, `-=`, `++`, `--`, etc."
+   accompanying operators like `=!`, `+=`, `-=`, `++`, `--`, etc."
   {:style/indent [:defn]}
   [& args]
   (let [conf (proc-impl/conform-defn args)
@@ -280,7 +280,7 @@
 (defmacro fn!
   "Imperative procedure. It differs from a Clojure fn in that it allows the use
    of local mutable variables using `(var <name> <value>) and other accompanying
-   operators like `!=`, `+=`, `-=`, `++`, `--`, etc."
+   operators like `=!`, `+=`, `-=`, `++`, `--`, etc."
   {:style/indent [:defn]}
   [& args]
   (let [conf (proc-impl/conform-fn args)

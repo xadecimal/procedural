@@ -48,7 +48,7 @@ Use the `do!` macro to declare and manipulate variables within a local scope.
 ```clojure
 (do!
   (var x 10)
-  (!= x 20) ; Set x to 20
+  (=! x 20) ; Set x to 20
   (println x)) ; Prints 20
 ```
 
@@ -137,7 +137,7 @@ The following table lists all the assignment operators provided by the Procedura
 
 | Operator   | Description                                      |
 |------------|--------------------------------------------------|
-| `!=`       | Sets the variable to a new value.                |
+| `=!`       | Sets the variable to a new value.                |
 | `+=`       | Adds and assigns the result.                     |
 | `-=`       | Subtracts and assigns the result.                |
 | `*=`       | Multiplies and assigns the result.               |
@@ -159,11 +159,11 @@ The following table lists all the assignment operators provided by the Procedura
 (var x 5)
 (when! (> x 3)
   (var x 0)
-  (!= x 10)
+  (=! x 10)
   (println x)) ; Prints 10
 (when-not! (> x 10)
   (var x 0)
-  (!= x 20)
+  (=! x 20)
   (println x)) ; Prints 20
 (println x) ; Prints 5
 ```
