@@ -138,6 +138,8 @@ The following table lists all the assignment operators provided by the Procedura
 | Operator   | Description                                      |
 |------------|--------------------------------------------------|
 | `=!`       | Sets the variable to a new value.                |
+| `++`       | Increments the variable by 1.                    |
+| `--`       | Decrements the variable by 1.                    |
 | `+=`       | Adds and assigns the result.                     |
 | `-=`       | Subtracts and assigns the result.                |
 | `*=`       | Multiplies and assigns the result.               |
